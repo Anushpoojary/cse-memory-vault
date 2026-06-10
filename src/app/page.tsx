@@ -41,6 +41,8 @@ export default function MemoryBank() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadingFile, setUploadingFile] = useState<string>("");
   const activeXhrRef = useRef<XMLHttpRequest | null>(null);
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState<number>(0);
 
   // Toast notifications state
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -60,6 +62,14 @@ export default function MemoryBank() {
       }
     };
   }, []);
+
+  // Process files in the upload queue sequentially
+  useEffect(() => {
+    if (filesToUpload.length > 0 && currentFileIndex < filesToUpload.length && !isUploading) {
+      uploadSingleFile(filesToUpload[currentFileIndex], currentFileIndex, filesToUpload.length);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filesToUpload, currentFileIndex, isUploading]);
 
   const fetchStats = async () => {
     try {
@@ -112,13 +122,11 @@ export default function MemoryBank() {
     return true;
   };
 
-  // Trigger file upload
-  const uploadFile = (file: File) => {
-    if (!validateFile(file)) return;
-
+  // Trigger file upload for a single file from the queue
+  const uploadSingleFile = (file: File, index: number, total: number) => {
     setIsUploading(true);
     setUploadProgress(0);
-    setUploadingFile(file.name);
+    setUploadingFile(`${file.name} (File ${index + 1} of ${total})`);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -144,8 +152,8 @@ export default function MemoryBank() {
           if (response.success) {
             // Success Confetti
             confetti({
-              particleCount: 100,
-              spread: 70,
+              particleCount: 50,
+              spread: 60,
               origin: { y: 0.8 },
               colors: ["#06b6d4", "#6366f1", "#10b981"]
             });
@@ -162,42 +170,71 @@ export default function MemoryBank() {
               }));
             }
 
-            showToast(`Success! Secure payload successfully committed to the vault.`, "success");
+            showToast(`Uploaded ${file.name} successfully!`, "success");
           } else {
-            showToast(response.error || "Upload failed. Try again.", "error");
+            showToast(`Failed to upload ${file.name}: ${response.error || "Upload failed."}`, "error");
           }
         } catch {
-          showToast("Server returned invalid response.", "error");
+          showToast(`Server returned invalid response for ${file.name}.`, "error");
         }
       } else {
-        showToast(`Upload failed. Status code: ${xhr.status}`, "error");
+        showToast(`Failed to upload ${file.name}. Status code: ${xhr.status}`, "error");
       }
-      resetUploadState();
+
+      // Finish this file and move to next in queue
+      setIsUploading(false);
+      setUploadProgress(0);
+      activeXhrRef.current = null;
+
+      if (index + 1 < total) {
+        setCurrentFileIndex(index + 1);
+      } else {
+        // Queue complete
+        setFilesToUpload([]);
+        setCurrentFileIndex(0);
+        setUploadingFile("");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        showToast("All files successfully processed!", "success");
+      }
     };
 
     xhr.onerror = () => {
-      showToast("Network error occurred during file upload.", "error");
-      resetUploadState();
+      showToast(`Network error occurred while uploading ${file.name}.`, "error");
+      setIsUploading(false);
+      setUploadProgress(0);
+      activeXhrRef.current = null;
+
+      // Try to proceed to next file anyway
+      if (index + 1 < total) {
+        setCurrentFileIndex(index + 1);
+      } else {
+        setFilesToUpload([]);
+        setCurrentFileIndex(0);
+        setUploadingFile("");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
     };
 
     xhr.send(formData);
   };
 
-  const resetUploadState = () => {
+  const cancelUpload = () => {
+    if (activeXhrRef.current) {
+      activeXhrRef.current.abort();
+      showToast("Upload queue aborted by user.", "info");
+    }
+    setFilesToUpload([]);
+    setCurrentFileIndex(0);
     setIsUploading(false);
     setUploadProgress(0);
     setUploadingFile("");
     activeXhrRef.current = null;
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  };
-
-  const cancelUpload = () => {
-    if (activeXhrRef.current) {
-      activeXhrRef.current.abort();
-      showToast("Upload aborted by user.", "info");
-      resetUploadState();
     }
   };
 
@@ -217,13 +254,33 @@ export default function MemoryBank() {
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      uploadFile(e.dataTransfer.files[0]);
+      const selectedFiles: File[] = [];
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        if (validateFile(file)) {
+          selectedFiles.push(file);
+        }
+      }
+      if (selectedFiles.length > 0) {
+        setFilesToUpload((prev) => [...prev, ...selectedFiles]);
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFile(e.target.files[0]);
+      const selectedFiles: File[] = [];
+      for (let i = 0; i < e.target.files.length; i++) {
+        const file = e.target.files[i];
+        if (validateFile(file)) {
+          selectedFiles.push(file);
+        }
+      }
+      if (selectedFiles.length > 0) {
+        setFilesToUpload((prev) => [...prev, ...selectedFiles]);
+      }
+      // Reset input to allow selecting same files
+      e.target.value = "";
     }
   };
 
@@ -365,6 +422,7 @@ export default function MemoryBank() {
               onChange={handleFileChange}
               className="hidden"
               accept=".jpg,.jpeg,.png,.webp,.mp4,.mov"
+              multiple
             />
 
             <div className="relative z-10 flex flex-col items-center">
