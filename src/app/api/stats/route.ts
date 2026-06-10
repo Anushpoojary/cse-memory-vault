@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const stats = getStats();
+    const stats = await getStats();
     return NextResponse.json(stats);
   } catch (error) {
     console.error('Failed to get stats:', error);

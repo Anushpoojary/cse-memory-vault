@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Increment stats
-    const updatedStats = incrementStat(type);
+    const updatedStats = await incrementStat(type);
 
     return NextResponse.json({
       success: true,
