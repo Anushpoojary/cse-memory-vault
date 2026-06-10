@@ -45,10 +45,15 @@ export default function MemoryBank() {
   // Toast notifications state
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Fetch initial stats
+  // Fetch initial stats and setup real-time updates
   useEffect(() => {
     fetchStats();
+    
+    // Poll stats every 5 seconds to sync counts across multiple devices
+    const interval = setInterval(fetchStats, 5000);
+
     return () => {
+      clearInterval(interval);
       // Clean up active XHR requests on unmount
       if (activeXhrRef.current) {
         activeXhrRef.current.abort();
