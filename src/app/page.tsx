@@ -43,6 +43,7 @@ export default function MemoryBank() {
   const activeXhrRef = useRef<XMLHttpRequest | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState<number>(0);
+  const [uploaderName, setUploaderName] = useState<string>("");
 
   // Toast notifications state
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -130,6 +131,9 @@ export default function MemoryBank() {
 
     const formData = new FormData();
     formData.append("file", file);
+    if (uploaderName.trim()) {
+      formData.append("uploaderName", uploaderName.trim());
+    }
 
     const xhr = new XMLHttpRequest();
     activeXhrRef.current = xhr;
@@ -401,6 +405,22 @@ export default function MemoryBank() {
         {/* Upload Box Section */}
         <section className="w-full flex flex-col gap-6">
           
+          {/* Identity input field */}
+          <div className="flex flex-col gap-2">
+            <label htmlFor="identityInput" className="text-slate-400 text-xs font-mono uppercase tracking-widest font-bold flex items-center gap-1.5">
+              <span>Your Identity (Optional / Owner eyes only)</span>
+            </label>
+            <input 
+              id="identityInput"
+              type="text" 
+              placeholder="e.g. John Doe (Only visible to the vault owner in Google Drive)" 
+              value={uploaderName}
+              onChange={(e) => setUploaderName(e.target.value)}
+              disabled={isUploading}
+              className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-2xl py-3 px-4 text-slate-200 placeholder-slate-600 focus:outline-none transition-all duration-300 font-sans"
+            />
+          </div>
+
           {/* Dropzone Container */}
           <div 
             onDragOver={handleDragOver}

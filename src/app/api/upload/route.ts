@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const uploaderName = formData.get('uploaderName') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
           requestBody: {
             name: randomizedName,
             parents: [folderId],
+            description: uploaderName ? `Uploaded by: ${uploaderName}` : 'Uploaded anonymously',
           },
           media: {
             mimeType: mimeType || 'application/octet-stream',
@@ -101,6 +103,7 @@ export async function POST(req: NextRequest) {
           requestBody: {
             name: randomizedName,
             parents: [folderId],
+            description: uploaderName ? `Uploaded by: ${uploaderName}` : 'Uploaded anonymously',
           },
           media: {
             mimeType: mimeType || 'application/octet-stream',
